@@ -538,7 +538,7 @@ public class LinkedListTabulatedFunction implements TabulatedFunction, Externali
     }
     
     // вложенный класс фабрики для LinkedList
-    public static class LinkedListTabulatedFunctionFactory implements TabulatedFunctions.TabulatedFunctionFactory {
+    public static class LinkedListTabulatedFunctionFactory implements TabulatedFunctionFactory {
         @Override
         public TabulatedFunction createTabulatedFunction(double leftX, double rightX, int pointsCount) {
             return new LinkedListTabulatedFunction(leftX, rightX, pointsCount);

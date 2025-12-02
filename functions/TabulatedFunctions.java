@@ -1,24 +1,11 @@
 package functions;
 
 import java.io.*;
-//импорты для рефлексии
+// импорты для рефлексии
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
-public class TabulatedFunctions {
-    
-    // базовый интерфейс фабрик табулированных функций
-    public interface TabulatedFunctionFactory {
-        // создает табулированную функцию по границам и количеству точек
-        TabulatedFunction createTabulatedFunction(double leftX, double rightX, int pointsCount);
-        
-        // создает табулированную функцию по границам и массиву значений
-        TabulatedFunction createTabulatedFunction(double leftX, double rightX, double[] values);
-        
-        // создает табулированную функцию по массиву точек
-        TabulatedFunction createTabulatedFunction(FunctionPoint[] points);
-    }
-    
+public class TabulatedFunctions { 
     // статическое поле фабрики с инициализацией по умолчанию
     private static TabulatedFunctionFactory factory = new ArrayTabulatedFunction.ArrayTabulatedFunctionFactory();
     
@@ -96,6 +83,7 @@ public class TabulatedFunctions {
         }
     }
     
+    // перегруженный метод tabulate с рефлексией
     public static TabulatedFunction tabulateByReflection(
             Class<?> functionClass, Function function, double leftX, double rightX, int pointsCount) {
         
@@ -126,27 +114,14 @@ public class TabulatedFunctions {
         return createTabulatedFunctionByReflection(functionClass, leftX, rightX, values);
     }
     
-    // метод для вывода табулированной функции в байтовый поток
-    // записывает количество точек и координаты всех точек
-    public static void outputTabulatedFunction(TabulatedFunction function, OutputStream out) throws IOException {
-        DataOutputStream dos = new DataOutputStream(out);
+    // перегруженные методы чтения через рефлексию
+    public static TabulatedFunction inputTabulatedFunction(
+            Class<?> functionClass, InputStream in) throws IOException {
         
-        // записываем количество точек в функции
-        dos.writeInt(function.getPointsCount());
-        
-        // записываем все точки (x, y) по порядку
-        for (int i = 0; i < function.getPointsCount(); i++) {
-            dos.writeDouble(function.getPointX(i)); // записываем координату x
-            dos.writeDouble(function.getPointY(i)); // записываем координату y
+        if (!TabulatedFunction.class.isAssignableFrom(functionClass)) {
+            throw new IllegalArgumentException("Класс должен реализовывать TabulatedFunction");
         }
         
-        // принудительно сбрасываем буфер, чтобы данные точно записались
-        dos.flush();
-    }
-
-    // метод для ввода
-    // читает данные и создает объект табулированной функции
-    public static TabulatedFunction inputTabulatedFunction(InputStream in) throws IOException {
         DataInputStream dis = new DataInputStream(in);
         
         //читаем количество точек
@@ -174,33 +149,48 @@ public class TabulatedFunctions {
             }
         }
         
-        // используем фабрику вместо прямого создания ArrayTabulatedFunction
-        return createTabulatedFunction(points);
+        // Создаем объект через рефлексию
+        try {
+            Constructor<?> constructor = functionClass.getConstructor(FunctionPoint[].class);
+            return (TabulatedFunction) constructor.newInstance((Object) points);
+        } catch (NoSuchMethodException | InstantiationException | 
+                 IllegalAccessException | InvocationTargetException e) {
+            throw new IllegalArgumentException("Не удалось создать объект: " + e.getMessage(), e);
+        }
     }
 
-    // метод для записи в символьный поток
-    public static void writeTabulatedFunction(TabulatedFunction function, Writer out) throws IOException {
-        BufferedWriter bw = new BufferedWriter(out);
+    // метод для вывода табулированной функции в байтовый поток
+    // записывает количество точек и координаты всех точек
+    public static void outputTabulatedFunction(TabulatedFunction function, OutputStream out) throws IOException {
+        DataOutputStream dos = new DataOutputStream(out);
         
-        // записываем количество точек
-        bw.write(String.valueOf(function.getPointsCount()));
-        bw.write(" ");
+        // записываем количество точек в функции
+        dos.writeInt(function.getPointsCount());
         
-        // записываем все точки (x1 y1 x2 y2...)
+        // записываем все точки (x, y) по порядку
         for (int i = 0; i < function.getPointsCount(); i++) {
-            bw.write(String.valueOf(function.getPointX(i))); // записываем x
-            bw.write(" "); 
-            bw.write(String.valueOf(function.getPointY(i))); // записываем y
-            if (i < function.getPointsCount() - 1) {
-                bw.write(" ");
-            }
+            dos.writeDouble(function.getPointX(i)); // записываем координату x
+            dos.writeDouble(function.getPointY(i)); // записываем координату y
         }
         
-        bw.flush();
+        // принудительно сбрасываем буфер, чтобы данные точно записались
+        dos.flush();
     }
 
-    // метод для чтения из символьного потока
-    public static TabulatedFunction readTabulatedFunction(Reader in) throws IOException {
+    // метод для ввода
+    // читает данные и создает объект табулированной функции
+    public static TabulatedFunction inputTabulatedFunction(InputStream in) throws IOException {
+        // используем перегруженный метод с классом по умолчанию
+        return inputTabulatedFunction(ArrayTabulatedFunction.class, in);
+    }
+
+    public static TabulatedFunction readTabulatedFunction(
+            Class<?> functionClass, Reader in) throws IOException {
+        
+        if (!TabulatedFunction.class.isAssignableFrom(functionClass)) {
+            throw new IllegalArgumentException("Класс должен реализовывать TabulatedFunction");
+        }
+        
         StreamTokenizer tokenizer = new StreamTokenizer(in);
         
         // для правильного разбора чисел
@@ -254,8 +244,41 @@ public class TabulatedFunctions {
             }
         }
         
-        // используем фабрику вместо прямого создания Array
-        return createTabulatedFunction(points);
+        // cоздаем объект через рефлексию
+        try {
+            Constructor<?> constructor = functionClass.getConstructor(FunctionPoint[].class);
+            return (TabulatedFunction) constructor.newInstance((Object) points);
+        } catch (NoSuchMethodException | InstantiationException | 
+                 IllegalAccessException | InvocationTargetException e) {
+            throw new IllegalArgumentException("Не удалось создать объект: " + e.getMessage(), e);
+        }
+    }
+
+    // метод для записи в символьный поток
+    public static void writeTabulatedFunction(TabulatedFunction function, Writer out) throws IOException {
+        BufferedWriter bw = new BufferedWriter(out);
+        
+        // записываем количество точек
+        bw.write(String.valueOf(function.getPointsCount()));
+        bw.write(" ");
+        
+        // записываем все точки (x1 y1 x2 y2...)
+        for (int i = 0; i < function.getPointsCount(); i++) {
+            bw.write(String.valueOf(function.getPointX(i))); // записываем x
+            bw.write(" "); 
+            bw.write(String.valueOf(function.getPointY(i))); // записываем y
+            if (i < function.getPointsCount() - 1) {
+                bw.write(" ");
+            }
+        }
+        
+        bw.flush();
+    }
+
+    // метод для чтения из символьного потока
+    public static TabulatedFunction readTabulatedFunction(Reader in) throws IOException {
+        // используем перегруженный метод с классом по умолчанию
+        return readTabulatedFunction(ArrayTabulatedFunction.class, in);
     }
     
     public static TabulatedFunction tabulate(Function function, double leftX, double rightX, int pointsCount) {
@@ -286,7 +309,7 @@ public class TabulatedFunctions {
             values[i] = function.getFunctionValue(x); // значение функции
         }
         
-        // используем фабрику вместо прямого создания Array
+        // используем фабрику вместо прямого создания ArrayTabulatedFunction
         return createTabulatedFunction(leftX, rightX, values);
     }
 }

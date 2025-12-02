@@ -305,8 +305,8 @@ public class ArrayTabulatedFunction implements TabulatedFunction, Serializable {
         };
     }
 
-    // вложенный класс фабрики для Array
-    public static class ArrayTabulatedFunctionFactory implements TabulatedFunctions.TabulatedFunctionFactory {
+    // вложенный класс фабрики для ArrayTabulatedFunction
+    public static class ArrayTabulatedFunctionFactory implements TabulatedFunctionFactory {
         @Override
         public TabulatedFunction createTabulatedFunction(double leftX, double rightX, int pointsCount) {
             return new ArrayTabulatedFunction(leftX, rightX, pointsCount);
